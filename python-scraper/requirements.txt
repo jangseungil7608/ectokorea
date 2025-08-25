@@ -1,0 +1,12 @@
+fastapi>=0.100.0
+uvicorn>=0.20.0
+httpx>=0.24.0
+beautifulsoup4>=4.11.0
+lxml>=4.9.0
+pydantic>=2.0.0
+python-multipart>=0.0.5
+aiofiles>=22.0.0
+
+# AI 기반 스마트 추출 (안정 버전)
+trafilatura>=1.6.0
+requests>=2.28.0
