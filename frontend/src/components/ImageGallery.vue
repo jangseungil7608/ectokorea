@@ -91,7 +91,7 @@ const props = defineProps({
 
 const selectedIndex = ref(0)
 const showLightbox = ref(false)
-const fallbackImage = '/placeholder-product.svg'
+const fallbackImage = '/ectokorea/placeholder-product.svg'
 
 // 썸네일 이미지 배열
 const thumbnailImages = computed(() => {

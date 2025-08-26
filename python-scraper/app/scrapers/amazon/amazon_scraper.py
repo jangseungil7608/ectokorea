@@ -1250,6 +1250,14 @@ class AmazonScraper(BaseScraper):
         translation_services_used = []
         
         try:
+            # 번역 전 원문 저장
+            product.original_name = product.name
+            product.original_category = product.category
+            product.original_description = product.description
+            product.original_features = product.features.copy() if product.features else []
+            
+            logger.info(f"💾 원문 데이터 저장 완료 - ASIN: {product.product_id}")
+            
             # Product 모델을 딕셔너리로 변환하여 번역 서비스에 전달
             product_dict = {
                 'name': product.name,

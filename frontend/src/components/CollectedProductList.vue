@@ -485,6 +485,216 @@
         </div>
       </div>
     </div>
+
+    <!-- 상세보기 모달 -->
+    <div
+      v-if="showDetailModal && selectedProduct"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      @click="closeDetailModal"
+    >
+      <div
+        class="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+        @click.stop
+      >
+        <!-- 모달 헤더 -->
+        <div class="flex justify-between items-center p-6 border-b">
+          <div class="flex items-center space-x-3">
+            <h3 class="text-xl font-bold text-gray-800">상품 상세정보</h3>
+            <div class="flex items-center space-x-2">
+              <label class="text-sm text-gray-600">
+                <input 
+                  type="checkbox" 
+                  v-model="showOriginalText" 
+                  class="mr-1"
+                > 
+                원문 보기
+              </label>
+            </div>
+          </div>
+          <button
+            @click="closeDetailModal"
+            class="text-gray-400 hover:text-gray-600 text-2xl"
+          >
+            ×
+          </button>
+        </div>
+
+        <!-- 모달 본문 -->
+        <div class="p-6 space-y-6">
+          <!-- 기본 정보 -->
+          <div class="grid md:grid-cols-2 gap-6">
+            <!-- 이미지 갤러리 -->
+            <div class="space-y-4">
+              <ImageGallery :product="selectedProduct" />
+            </div>
+
+            <!-- 상품 정보 -->
+            <div class="space-y-4">
+              <div>
+                <h4 class="text-lg font-semibold text-gray-800 mb-2">상품명</h4>
+                <p class="text-gray-700" v-if="!showOriginalText">
+                  {{ selectedProduct.title }}
+                </p>
+                <p class="text-gray-700" v-else>
+                  {{ selectedProduct.original_title || selectedProduct.title }}
+                </p>
+              </div>
+
+              <div>
+                <h4 class="text-lg font-semibold text-gray-800 mb-2">카테고리</h4>
+                <p class="text-gray-700" v-if="!showOriginalText">
+                  {{ selectedProduct.category }}
+                </p>
+                <p class="text-gray-700" v-else>
+                  {{ selectedProduct.original_category || selectedProduct.category }}
+                </p>
+              </div>
+
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 class="text-sm font-semibold text-gray-800 mb-1">ASIN</h4>
+                  <p class="text-gray-700 font-mono">{{ selectedProduct.asin }}</p>
+                </div>
+                <div>
+                  <h4 class="text-sm font-semibold text-gray-800 mb-1">가격</h4>
+                  <p class="text-gray-700 font-semibold">¥{{ formatPrice(selectedProduct.price_jpy) }}</p>
+                </div>
+                <div v-if="selectedProduct.weight_g">
+                  <h4 class="text-sm font-semibold text-gray-800 mb-1">무게</h4>
+                  <p class="text-gray-700">{{ selectedProduct.weight_g }}g</p>
+                </div>
+                <div v-if="selectedProduct.dimensions">
+                  <h4 class="text-sm font-semibold text-gray-800 mb-1">치수</h4>
+                  <p class="text-gray-700 text-xs">{{ selectedProduct.dimensions }}</p>
+                </div>
+              </div>
+
+              <div>
+                <h4 class="text-sm font-semibold text-gray-800 mb-1">상태</h4>
+                <span
+                  :class="getStatusClass(selectedProduct.status)"
+                  class="px-3 py-1 rounded-full text-sm font-medium"
+                >
+                  {{ getStatusName(selectedProduct.status) }}
+                </span>
+              </div>
+
+              <div v-if="selectedProduct.profit_analysis">
+                <h4 class="text-sm font-semibold text-gray-800 mb-2">수익성 분석</h4>
+                <div class="bg-gray-50 rounded-lg p-4 space-y-2">
+                  <div class="flex justify-between">
+                    <span class="text-sm text-gray-600">수익률:</span>
+                    <span :class="getProfitColorClass(selectedProduct.profit_margin)" class="font-semibold">
+                      {{ selectedProduct.profit_margin }}%
+                    </span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-sm text-gray-600">추천 판매가:</span>
+                    <span class="font-semibold">₩{{ selectedProduct.recommended_price?.toLocaleString() }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 상품 특징 -->
+          <div v-if="selectedProduct.features && selectedProduct.features.length > 0">
+            <h4 class="text-lg font-semibold text-gray-800 mb-3">상품 특징</h4>
+            <ul class="space-y-2" v-if="!showOriginalText">
+              <li
+                v-for="(feature, index) in selectedProduct.features"
+                :key="index"
+                class="flex items-start space-x-2"
+              >
+                <span class="text-blue-500 mt-1">•</span>
+                <span class="text-gray-700">{{ feature }}</span>
+              </li>
+            </ul>
+            <ul class="space-y-2" v-else>
+              <li
+                v-for="(feature, index) in (selectedProduct.original_features || selectedProduct.features)"
+                :key="index"
+                class="flex items-start space-x-2"
+              >
+                <span class="text-blue-500 mt-1">•</span>
+                <span class="text-gray-700">{{ feature }}</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- 상품 설명 -->
+          <div v-if="selectedProduct.description">
+            <h4 class="text-lg font-semibold text-gray-800 mb-3">상품 설명</h4>
+            <div class="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto" v-if="!showOriginalText">
+              <ProductDescription :html-content="selectedProduct.description" />
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto" v-else>
+              <ProductDescription :html-content="selectedProduct.original_description || selectedProduct.description" />
+            </div>
+          </div>
+
+          <!-- 수집 정보 -->
+          <div class="border-t pt-6">
+            <h4 class="text-lg font-semibold text-gray-800 mb-3">수집 정보</h4>
+            <div class="grid md:grid-cols-3 gap-4 text-sm">
+              <div>
+                <span class="text-gray-600">수집일:</span>
+                <span class="ml-2 text-gray-800">{{ formatDate(selectedProduct.collected_at) }}</span>
+              </div>
+              <div>
+                <span class="text-gray-600">등록일:</span>
+                <span class="ml-2 text-gray-800">{{ formatDate(selectedProduct.created_at) }}</span>
+              </div>
+              <div v-if="selectedProduct.analyzed_at">
+                <span class="text-gray-600">분석일:</span>
+                <span class="ml-2 text-gray-800">{{ formatDate(selectedProduct.analyzed_at) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 모달 푸터 -->
+        <div class="flex justify-between items-center p-6 border-t bg-gray-50">
+          <div class="flex space-x-3">
+            <a
+              :href="selectedProduct.amazon_url"
+              target="_blank"
+              class="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600"
+            >
+              🔗 Amazon에서 보기
+            </a>
+            <button
+              @click="toggleFavoriteFromModal"
+              :class="selectedProduct.is_favorite ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-gray-500 hover:bg-gray-600'"
+              class="px-4 py-2 text-white rounded-md"
+            >
+              {{ selectedProduct.is_favorite ? '⭐ 즐겨찾기 해제' : '☆ 즐겨찾기 추가' }}
+            </button>
+          </div>
+          
+          <div class="flex space-x-3">
+            <button
+              @click="reanalyzeFromModal"
+              class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
+            >
+              📊 재분석
+            </button>
+            <button
+              @click="deleteFromModal"
+              class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
+            >
+              🗑️ 삭제
+            </button>
+            <button
+              @click="closeDetailModal"
+              class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -520,6 +730,7 @@ export default {
       // 모달 관련
       showDetailModal: false,
       selectedProduct: null,
+      showOriginalText: false,
 
       // 상태 매핑
       statusNames: {

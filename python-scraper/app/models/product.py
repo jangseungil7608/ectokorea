@@ -13,6 +13,7 @@ class Product(BaseModel):
     
     # 상품 상세
     name: str                          # 상품명
+    original_name: Optional[str] = None # 원문 상품명
     price: Optional[float] = None      # 가격 (JPY)
     original_price: Optional[float] = None  # 원가 (할인전)
     currency: str = "JPY"              # 통화
@@ -27,7 +28,9 @@ class Product(BaseModel):
     
     # 상세 정보
     description: Optional[str] = None   # 상품 설명
+    original_description: Optional[str] = None # 원문 상품 설명
     features: List[str] = []           # 주요 특징
+    original_features: List[str] = []  # 원문 주요 특징
     specifications: Dict[str, Any] = {}  # 사양 정보
     
     # 물리적 정보
@@ -36,6 +39,7 @@ class Product(BaseModel):
     
     # 카테고리 및 분류
     category: Optional[str] = None     # 카테고리
+    original_category: Optional[str] = None # 원문 카테고리
     brand: Optional[str] = None        # 브랜드
     
     # 재고 및 배송
@@ -68,16 +72,20 @@ class Product(BaseModel):
             'product_id': self.product_id,
             'url': self.url,
             'name': self.name,
+            'original_name': self.original_name,
             'price': self.price,
             'image_url': self.image_url,
             'image_urls': self.image_urls,
             'thumbnail_images': self.thumbnail_images,
             'large_images': self.large_images,
             'description': self.description,
+            'original_description': self.original_description,
             'features': self.features,
+            'original_features': self.original_features,
             'weight': self.weight,
             'dimensions': self.dimensions,
             'category': self.category,
+            'original_category': self.original_category,
             'brand': self.brand,
             'in_stock': self.in_stock,
             'rating': self.rating,

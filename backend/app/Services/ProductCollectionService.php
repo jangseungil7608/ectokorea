@@ -65,20 +65,33 @@ class ProductCollectionService
             $category = $this->determineCategory($product, $productData);
             $subcategory = $this->determineSubcategory($category, $product, $productData);
 
-            // 상품 정보 업데이트
+            // 원문 데이터 저장 전 로그 (새 상품)
+            Log::info("새 상품 데이터베이스 저장 전 원문 데이터 확인", [
+                'asin' => $asin,
+                'original_name' => $productData['original_name'] ?? 'NULL',
+                'original_category' => $productData['original_category'] ?? 'NULL',
+                'has_original_description' => isset($productData['original_description']),
+                'has_original_features' => isset($productData['original_features']) && is_array($productData['original_features']) ? count($productData['original_features']) . '개' : 'NULL'
+            ]);
+
+            // 상품 정보 업데이트 (원문 필드 포함)
             $product->update([
                 'title' => $productData['title'] ?? $productData['name'] ?? '제목 없음',
+                'original_title' => $productData['original_name'] ?? null,
                 'price_jpy' => $this->extractPriceFromData($productData),
                 'weight_g' => $this->extractWeight($productData),
                 'dimensions' => $this->extractDimensions($productData),
                 'category' => $category,
+                'original_category' => $productData['original_category'] ?? null,
                 'subcategory' => $subcategory,
                 'images' => $this->extractImages($productData),
                 'thumbnail_images' => $this->extractThumbnailImages($productData),
                 'large_images' => $this->extractLargeImages($productData),
                 'description_images' => $this->extractDescriptionImages($productData),
                 'description' => $productData['description'] ?? '',
+                'original_description' => $productData['original_description'] ?? null,
                 'features' => $this->extractFeatures($productData),
+                'original_features' => $productData['original_features'] ?? null,
                 'specifications' => $this->extractSpecifications($productData),
                 'status' => 'COLLECTED',
                 'collected_at' => now()
@@ -126,19 +139,32 @@ class ProductCollectionService
             $category = $this->determineCategory($product, $productData);
             $subcategory = $this->determineSubcategory($category, $product, $productData);
             
+            // 원문 데이터 저장 전 로그
+            Log::info("데이터베이스 저장 전 원문 데이터 확인", [
+                'asin' => $product->asin,
+                'original_name' => $productData['original_name'] ?? 'NULL',
+                'original_category' => $productData['original_category'] ?? 'NULL',
+                'has_original_description' => isset($productData['original_description']),
+                'has_original_features' => isset($productData['original_features']) && is_array($productData['original_features']) ? count($productData['original_features']) . '개' : 'NULL'
+            ]);
+            
             $product->update([
                 'title' => $productData['title'] ?? $productData['name'] ?? $product->title,
+                'original_title' => $productData['original_name'] ?? null,
                 'price_jpy' => $this->extractPrice($productData['price'] ?? '') ?? $product->price_jpy,
                 'weight_g' => $this->extractWeight($productData) ?? $product->weight_g,
                 'dimensions' => $this->extractDimensions($productData) ?? $product->dimensions,
                 'category' => $category,
+                'original_category' => $productData['original_category'] ?? null,
                 'subcategory' => $subcategory,
                 'images' => $this->extractImages($productData) ?: $product->images,
                 'thumbnail_images' => $this->extractThumbnailImages($productData) ?: $product->thumbnail_images,
                 'large_images' => $this->extractLargeImages($productData) ?: $product->large_images,
                 'description_images' => $this->extractDescriptionImages($productData) ?: $product->description_images,
                 'description' => $productData['description'] ?? $product->description,
+                'original_description' => $productData['original_description'] ?? null,
                 'features' => $this->extractFeatures($productData) ?: $product->features,
+                'original_features' => $productData['original_features'] ?? null,
                 'specifications' => $this->extractSpecifications($productData) ?: $product->specifications,
                 'status' => 'COLLECTED',
                 'collected_at' => now(),
@@ -728,6 +754,9 @@ class ProductCollectionService
         try {
             $url = $this->pythonScraperUrl . "/scrape/{$site}";
             
+            // 번역 파라미터 추가
+            $params['translate'] = true;
+            
             $response = Http::timeout(60)->get($url, $params);
             
             if (!$response->successful()) {
@@ -739,6 +768,15 @@ class ProductCollectionService
             if (!$data['success']) {
                 throw new Exception("Python 스크래퍼에서 오류 반환: " . ($data['message'] ?? 'Unknown error'));
             }
+            
+            // 원문 데이터 포함 여부 로그
+            Log::info("Python 스크래퍼 응답 데이터 확인", [
+                'has_original_name' => isset($data['data']['original_name']),
+                'has_original_category' => isset($data['data']['original_category']),
+                'has_original_description' => isset($data['data']['original_description']),
+                'has_original_features' => isset($data['data']['original_features']),
+                'original_name_sample' => isset($data['data']['original_name']) ? substr($data['data']['original_name'], 0, 50) . '...' : null
+            ]);
             
             return $data['data'];
             

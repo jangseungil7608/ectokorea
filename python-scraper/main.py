@@ -49,14 +49,18 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS 설정 (Laravel에서 호출 허용)
+# CORS 설정 (Laravel 및 프론트엔드에서 호출 허용)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://192.168.1.13:8080",      # Laravel 로컬
         "https://devseungil.mydns.jp",   # Laravel 외부
         "http://localhost:8080",
-        "http://127.0.0.1:8080"
+        "http://127.0.0.1:8080",
+        "http://192.168.1.13:5173",      # 프론트엔드 로컬
+        "https://devseungil.synology.me", # 프론트엔드 외부
+        "http://localhost:5173",
+        "http://127.0.0.1:5173"
     ],
     allow_credentials=True,
     allow_methods=["*"],
