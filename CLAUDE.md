@@ -9,6 +9,68 @@ windows(11)-wsl(2.3.26)-synology nas(DSM7.2)-docker(container manager)
 claude code 설치는 wsl(2.3.26) 에 했음 
 
 기본적으로 설치(install)는 유저가 직접하도록 유도
+
+## 최근 해결된 문제들 (2025-01-26)
+
+### ✅ 프론트엔드 이미지 표시 문제 해결
+- **문제**: 수집상품 > 상세보기에서 이미지가 표시되지 않음
+- **원인**: ImageGallery 컴포넌트에서 props 사용법 불일치
+- **해결**: CollectedProductList.vue에서 일관된 `product` prop 사용으로 통일
+- **파일**: `/frontend/src/components/CollectedProductList.vue`, `/frontend/src/components/ImageGallery.vue`
+
+### ✅ Python 스크래퍼 CORS 설정 수정  
+- **문제**: 외부 접속 시 프론트엔드에서 Python 스크래퍼 호출 실패
+- **원인**: CORS 설정에서 프론트엔드 도메인 누락
+- **해결**: Python 스크래퍼 CORS에 프론트엔드 도메인 추가
+  - `http://192.168.1.13:5173` (로컬)
+  - `https://devseungil.synology.me` (외부)
+- **파일**: `/python-scraper/main.py`
+
+### ✅ Git 관리 최적화
+- **문제**: 불필요한 파일들이 Git에 추적됨
+- **해결**: 포괄적인 .gitignore 설정 추가
+  - Laravel: vendor/, .env, storage/ 등
+  - Vue.js/Node: node_modules/, dist/, .cache 등  
+  - Python: __pycache__/, *.pyc, venv/ 등
+  - OS/Editor: .DS_Store, .vscode, .idea 등
+- **파일**: `/.gitignore`
+
+### 🔄 현재 진행 중
+- **백엔드 API 500 에러**: JWT 인증 구현 대기 중
+  - CollectedProductController에서 `auth('api')->user()` null 반환
+  - 임시 해결책: 인증 체크 건너뛰기 또는 JWT 완전 구현 필요
+- **외부 접속 로그인 실패**: 백엔드 라우팅 또는 JWT 설정 문제
+
+### 🏗️ 아키텍처 권장사항
+
+#### 완전 내부 네트워크 구성 (권장)
+```
+사용자(로컬) → 프론트엔드(내부) → 백엔드(내부) → Python 스크래퍼(내부)
+      ↓            ↓              ↓               ↓
+192.168.1.13:5173 → 192.168.1.13:8080 → 192.168.1.13:8001
+```
+
+**장점**:
+- 보안 강화 (외부 노출 없음)
+- 설정 간소화 (CORS, SSL 불필요)
+- 빠른 응답속도 (내부 네트워크)
+
+#### 혼합 구성 (현재 설정)
+```  
+프론트엔드(외부) → 백엔드(외부) → Python 스크래퍼(내부)
+      ↓            ↓               ↓
+devseungil.synology.me → devseungil.mydns.jp → 192.168.1.13:8001
+```
+
+**주의사항**:
+- Python 스크래퍼는 보안상 내부 전용 유지 권장
+- 백엔드를 통한 프록시 패턴으로 안전하게 접근
+
+#### 불가능한 구성
+```
+프론트엔드(외부) → 백엔드(내부) ❌
+```
+브라우저에서 내부 IP(192.168.1.13)에 접근 불가능
  
  📁 전체 프로젝트 구조
 

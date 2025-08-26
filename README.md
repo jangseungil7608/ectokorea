@@ -1,66 +1,75 @@
-# 일본→한국 EC 출품 도구
+# EctoKorea - 日韓EC商品収益性計算ツール
 
-Amazon Japan에서 Coupang으로 상품을 효율적으로 출품하기 위한 이익계산 및 관리 도구입니다.
+日本Amazon、楽天、JINSから商品を収集し、韓国Coupang販売時の収益性を計算・管理するWebアプリケーションです。
 
-## 🚀 주요 기능
+## 🚀 主要機能
 
-### ✅ 완료된 기능
-- **💰 이익 계산기**: 일본 구매가부터 한국 판매까지의 모든 비용과 이익을 정확히 계산
-- **📊 실시간 환율**: 한국수출입은행 API를 통한 실시간 JPY-KRW 환율 연동
-- **🏷️ 카테고리별 관세**: 화장품, 의류, 전자제품 등 카테고리별 정확한 관세율 적용
-- **🚚 배송비 계산**: 항공/해상배송 선택과 무게별 자동 배송비 계산
-- **🎯 목표 이익률**: 원하는 이익률 기준으로 추천 판매가 자동 계산
+### ✅ 実装済み機能
+- **💰 収益計算機**: 日本購入価格から韓国販売までの全コストと利益を正確に計算
+- **📊 リアルタイム為替**: 韓国輸出入銀行APIによるリアルタイムJPY-KRW為替連携
+- **🏷️ カテゴリー別関税**: 化粧品、アパレル、電子製品等カテゴリー別正確な関税率適用
+- **🚚 配送費計算**: 航空・海上配送選択と重量別自動配送費計算
+- **🎯 目標利益率**: 希望利益率基準の推奨販売価格自動計算
+- **🔍 多サイト商品収集**: Amazon、楽天、JINS商品情報自動収集 (Python FastAPI)
+- **🖼️ 画像ギャラリー**: Amazon風6枚画像ギャラリー対応
+- **📝 商品管理**: 収集商品の登録・修正・削除・照会
+- **🔐 JWT認証システム**: セキュアなユーザー認証 (実装予定)
 
-### 🔄 계획된 기능
-- Amazon 상품 정보 리서치 도구
-- 자동 번역 (일본어 → 한국어)
-- Coupang 상품 등록 지원
-- 재고 관리 시스템
+### 🔄 実装予定機能
+- 楽天・JINS商品スクレイピング完成
+- 自動翻訳 (日本語 → 韓国語)
+- Coupang商品登録支援
+- 在庫管理システム
 
-## 💻 기술 스택
+## 💻 技術スタック
 
-- **백엔드**: Laravel 12 + PHP 8.2+
-- **프론트엔드**: Vue 3 + Tailwind CSS  
-- **데이터베이스**: PostgreSQL
-- **환율 API**: 한국수출입은행 Open API
+- **バックエンド**: Laravel 12 + PHP 8.2+
+- **フロントエンド**: Vue 3 + Vite + Tailwind CSS  
+- **データベース**: PostgreSQL
+- **Pythonスクレイパー**: FastAPI + httpx + BeautifulSoup4 + trafilatura
+- **為替API**: 韓国輸出入銀行 Open API
+- **インフラ**: Docker Compose
 
-## 📋 설치 및 실행
+## 📋 インストール・実行
 
-### 1. 환경 설정
+### 1. 環境設定
 
 ```bash
-# 백엔드 환경변수 설정
+# バックエンド環境変数設定
 cd backend
 cp .env.example .env
 ```
 
-`.env` 파일에서 다음 설정을 변경하세요:
+`.env`ファイルで以下の設定を変更してください:
 ```env
-# 한국수출입은행 환율 API 키 (필수)
-KOREA_EXIMBANK_API_KEY=여기에_발급받은_키_입력
+# 韓国輸出入銀行為替APIキー (必須)
+KOREA_EXIMBANK_API_KEY=発行されたキーを入力
 
-# 데이터베이스 설정 (Docker 사용시)
+# データベース設定 (Docker使用時)
 DB_CONNECTION=pgsql
 DB_HOST=db
 DB_PORT=5432
 DB_DATABASE=coupang
 DB_USERNAME=youruser
 DB_PASSWORD=yourpass
+
+# Pythonスクレイパー設定
+PYTHON_SCRAPER_URL=http://192.168.1.13:8001/ectokorea/api/v1
 ```
 
-### 2. Docker로 실행 (추천)
+### 2. Docker実行 (推奨)
 
 ```bash
-# 전체 서비스 시작
+# 全サービス開始
 docker-compose up -d
 
-# 서비스 확인
+# サービス確認
 docker-compose ps
 ```
 
-### 3. 수동 실행
+### 3. 手動実行
 
-**백엔드:**
+**バックエンド:**
 ```bash
 cd backend
 composer install
@@ -69,95 +78,168 @@ php artisan migrate
 php artisan serve --host=0.0.0.0 --port=8080
 ```
 
-**프론트엔드:**
+**フロントエンド:**
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-## 🌐 접속 URL
-
-- **프론트엔드**: https://devseungil.synology.me
-- **백엔드 API**: https://devseungil.mydns.jp
-- **PostgreSQL**: localhost:55432
-
-## 📖 사용 방법
-
-### 이익 계산기 사용하기
-
-1. **일본 상품 정보 입력**
-   - 상품 가격 (JPY)
-   - 일본 배송비
-   - 상품 무게
-   - 배송 방법 (항공/해상)
-   - 상품 카테고리
-
-2. **한국 판매 정보 입력**
-   - 쿠팡 판매가 (KRW)
-   - 한국 배송비
-   - 포장비 (선택사항)
-
-3. **결과 확인**
-   - 총 비용 분석
-   - 순 이익 계산
-   - 이익률 표시
-   - 세금/수수료 상세 내역
-
-### 추천 판매가 계산
-
-1. 목표 이익률 설정 (5-50%)
-2. "추천 판매가 계산" 버튼 클릭
-3. 목표 이익률 달성을 위한 적정 판매가 확인
-
-## 🔑 환율 API 키 발급
-
-1. [한국수출입은행 환율API](https://www.koreaexim.go.kr/site/program/financial/exchangeJSON) 접속
-2. 간단한 본인 인증 후 API 키 발급
-3. `.env` 파일의 `KOREA_EXIMBANK_API_KEY`에 입력
-
-## 📊 계산 로직
-
-### 총 비용 계산
-```
-총 비용 = 일본 구매가 + 일본 배송비 + 국제배송비 + 관세 + 부가세 + 한국 배송비 + 플랫폼 수수료
+**Pythonスクレイパー:**
+```bash
+cd python-scraper
+pip install -r requirements.txt
+uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 ```
 
-### 세금 계산
-- **관세**: 카테고리별 (0-30%)
-- **부가세**: (구매가 + 관세) × 10%
-- **면세**: $150 이하 개인용품
+## 🌐 アクセスURL
 
-### 플랫폼 수수료 (쿠팡)
-- 화장품: 15%
-- 의류: 12%  
-- 전자제품: 10%
-- 식품: 18%
-- 도서: 10%
-- 기타: 12%
+### ローカル接続
+- **フロントエンド**: `http://192.168.1.13:5173/ectokorea`
+- **バックエンドAPI**: `http://192.168.1.13:8080/ectokorea/*`
+- **PythonスクレイパーAPI**: `http://192.168.1.13:8001/ectokorea/api/v1/*`
 
-## 🛠️ 개발환경 설정
+### 外部接続
+- **フロントエンド**: `https://devseungil.synology.me/ectokorea`
+- **バックエンドAPI**: `https://devseungil.mydns.jp/ectokorea/*`
+- **PythonスクレイパーAPI**: `https://devseungil.mydns.jp:8001/ectokorea/api/v1/*`
+- **PostgreSQL**: `localhost:55432`
+
+## 📖 使用方法
+
+### 商品収集機能
+
+1. **Amazon商品収集**
+   - ASIN入力で直接収集: `http://192.168.1.13:8001/ectokorea/api/v1/scrape/amazon?asin=B0DJNXJTJL`
+   - URL自動検出: `http://192.168.1.13:8001/ectokorea/api/v1/scrape?url=https://www.amazon.co.jp/dp/B0DJNXJTJL`
+   - 6枚画像ギャラリー、商品説明、特徴を自動収集
+
+2. **楽天商品収集** (実装予定)
+   - Shop ID + Item Code による収集
+   - URL自動検出対応
+
+3. **JINS商品収集** (実装予定)
+   - Product ID による収集
+   - URL自動検出対応
+
+### 収益計算機の使用
+
+1. **日本商品情報入力**
+   - 商品価格 (JPY)
+   - 日本配送費
+   - 商品重量
+   - 配送方法 (航空・海上)
+   - 商品カテゴリー
+
+2. **韓国販売情報入力**
+   - Coupang販売価格 (KRW)
+   - 韓国配送費
+   - 梱包費 (オプション)
+
+3. **結果確認**
+   - 総コスト分析
+   - 純利益計算
+   - 利益率表示
+   - 税金・手数料詳細内訳
+
+### 推奨販売価格計算
+
+1. 目標利益率設定 (5-50%)
+2. 「推奨販売価格計算」ボタンクリック
+3. 目標利益率達成のための適正販売価格確認
+
+## 🔑 為替APIキー発行
+
+1. [韓国輸出入銀行為替API](https://www.koreaexim.go.kr/site/program/financial/exchangeJSON)にアクセス
+2. 簡単な本人認証後APIキー発行
+3. `.env`ファイルの`KOREA_EXIMBANK_API_KEY`に入力
+
+## 📊 計算ロジック
+
+### 総コスト計算
+```
+総コスト = 日本購入価格 + 日本配送費 + 国際配送費 + 関税 + 付加価値税 + 韓国配送費 + プラットフォーム手数料
+```
+
+### 税金計算
+- **関税**: カテゴリー別 (0-30%)
+  - 一般: 8%
+  - 化粧品: 8%
+  - アパレル: 13%
+  - 電子製品: 8%
+  - 食品: 30%
+  - 書籍: 0%
+- **付加価値税**: (購入価格 + 関税) × 10%
+- **免税**: $150以下個人用品
+
+### 国際配送費
+- **航空便**: ¥1,000/kg
+- **海上便**: ¥300/kg
+
+### プラットフォーム手数料 (Coupang)
+- 化粧品: 15%
+- アパレル: 12%
+- 電子製品: 10%
+- 食品: 18%
+- 書籍: 10%
+- その他: 12%
+
+## 🛠️ 開発環境設定
 
 ```bash
-# 백엔드 테스트
+# バックエンドテスト
 cd backend
 php artisan test
 
-# 프론트엔드 빌드
-cd frontend  
+# フロントエンドビルド
+cd frontend
 npm run build
+
+# Pythonスクレイパーテスト
+cd python-scraper
+python -m pytest tests/
 ```
 
-## ⚠️ 주의사항
+## 📡 APIエンドポイント
 
-1. **법적 준수**: Amazon 이용약관을 준수하여 직접 데이터 추출을 하지 않습니다
-2. **개인 사용**: 상업적 재판매가 아닌 개인 수입/판매 목적으로 설계되었습니다
-3. **정확성**: 계산 결과는 참고용이며, 실제 세금/수수료는 변동될 수 있습니다
+### 商品管理
+- `GET /ectokorea/collected-products` - 商品一覧照会
+- `POST /ectokorea/collected-products/collect` - 商品収集リクエスト
+- `GET /ectokorea/collected-products/{id}` - 商品詳細照会
+- `DELETE /ectokorea/collected-products/{id}` - 商品削除
 
-## 🤝 기여하기
+### Pythonスクレイピングサービス
+- `GET /ectokorea/api/v1/scrape/amazon?asin={asin}` - Amazon商品スクレイピング
+- `GET /ectokorea/api/v1/scrape?url={product_url}` - URL自動検出スクレイピング
+- `GET /ectokorea/api/v1/sites` - サポートサイト一覧
 
-버그 리포트나 기능 제안은 Issues를 통해 알려주세요.
+## ⚠️ 注意事項
 
-## 📄 라이선스
+1. **法的遵守**: Amazon利用規約を遵守し、直接的なデータ抽出は行いません
+2. **個人使用**: 商業的転売ではなく、個人輸入・販売目的で設計されています
+3. **正確性**: 計算結果は参考用であり、実際の税金・手数料は変動する可能性があります
+4. **スクレイピング**: robots.txtを尊重し、適切な間隔でリクエストを送信します
 
-개인 및 교육 목적으로 자유롭게 사용 가능합니다.
+## 🏗️ アーキテクチャ
+
+### 推奨構成 (内部ネットワーク)
+```
+ユーザー → フロントエンド → バックエンド → Pythonスクレイパー
+   ↓           ↓          ↓           ↓
+192.168.1.13:5173 → :8080 → :8001 (内部専用)
+```
+
+### 混合構成 (現在設定)
+```
+フロントエンド(外部) → バックエンド(外部) → Pythonスクレイパー(内部)
+       ↓               ↓                ↓
+devseungil.synology.me → devseungil.mydns.jp → 192.168.1.13:8001
+```
+
+## 🤝 コントリビューション
+
+バグレポートや機能提案はIssuesでお知らせください。
+
+## 📄 ライセンス
+
+個人および教育目的で自由に使用可能です。
