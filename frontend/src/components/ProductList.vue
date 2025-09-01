@@ -52,7 +52,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
+import api from '@/utils/api'
 
 const products = ref([])
 const currentPage = ref(1)
@@ -61,7 +61,7 @@ const deleteTarget = ref(null)
 
 const fetchProducts = async (page = 1) => {
   try {
-    const res = await axios.get(`/products?page=${page}`)
+    const res = await api.get(`/products?page=${page}`)
     products.value = res.data
     currentPage.value = page
   } catch (error) {
@@ -74,7 +74,7 @@ const editProduct = (item) => {
 }
 
 const updateProduct = async () => {
-  await axios.put(`/products/${editingProduct.value.id}`, editingProduct.value)
+  await api.put(`/products/${editingProduct.value.id}`, editingProduct.value)
   await fetchProducts(currentPage.value)
   editingProduct.value = null
 }
@@ -85,7 +85,7 @@ const confirmDelete = (item) => {
 
 const deleteProduct = async () => {
   try {
-    await axios.delete(`/products/${deleteTarget.value.id}`)
+    await api.delete(`/products/${deleteTarget.value.id}`)
     deleteTarget.value = null
     await fetchProducts()
   } catch (error) {

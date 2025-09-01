@@ -359,7 +359,7 @@
 </template>
 
 <script>
-import axios from 'axios'
+import api from '@/utils/api'
 
 export default {
   name: 'ProductCollector',
@@ -423,7 +423,7 @@ export default {
       this.result = null
 
       try {
-        const response = await axios.post('/collected-products/collect/asin', {
+        const response = await api.post('/collected-products/collect/asin', {
           asin: this.singleAsin.toUpperCase(),
           auto_analyze: this.autoAnalyze,
           target_margin: this.targetMargin,
@@ -464,7 +464,7 @@ export default {
       this.result = null
 
       try {
-        const response = await axios.post('/collected-products/collect/bulk-asin', {
+        const response = await api.post('/collected-products/collect/bulk-asin', {
           asins: this.bulkAsinList,
           auto_analyze: this.bulkAutoAnalyze
         })
@@ -497,7 +497,7 @@ export default {
       this.result = null
 
       try {
-        const response = await axios.post('/collected-products/collect/url', {
+        const response = await api.post('/collected-products/collect/url', {
           url: this.collectionUrl,
           auto_analyze: this.urlAutoAnalyze,
           max_results: parseInt(this.urlMaxResults)
@@ -535,7 +535,7 @@ export default {
       this.result = null
 
       try {
-        const response = await axios.post('/collected-products/collect/keyword', {
+        const response = await api.post('/collected-products/collect/keyword', {
           keyword: this.searchKeyword.trim(),
           max_results: parseInt(this.keywordMaxResults),
           auto_analyze: this.keywordAutoAnalyze
@@ -569,7 +569,7 @@ export default {
 
     async loadStats() {
       try {
-        const response = await axios.get('/collected-products/stats/overview')
+        const response = await api.get('/collected-products/stats/overview')
         if (response.data.success) {
           this.stats = response.data.data
         }

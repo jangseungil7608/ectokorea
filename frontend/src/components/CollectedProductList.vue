@@ -623,7 +623,7 @@
           </div>
 
           <!-- 상품 설명 -->
-          <div v-if="selectedProduct.description">
+          <div v-if="selectedProduct.description || selectedProduct.original_description">
             <h4 class="text-lg font-semibold text-gray-800 mb-3">상품 설명</h4>
             <div class="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto" v-if="!showOriginalText">
               <ProductDescription :html-content="selectedProduct.description" />
@@ -699,7 +699,7 @@
 </template>
 
 <script>
-import axios from 'axios'
+import api from '@/utils/api'
 import ImageGallery from './ImageGallery.vue'
 import ProductDescription from './ProductDescription.vue'
 
@@ -766,7 +766,7 @@ export default {
         if (this.filters.favorite !== '') params.favorite = this.filters.favorite
         if (this.searchQuery) params.search = this.searchQuery
 
-        const response = await axios.get('/collected-products', { params })
+        const response = await api.get('/collected-products', { params })
 
         if (response.data.success) {
           this.products = response.data.data.data
@@ -799,7 +799,7 @@ export default {
 
     async toggleFavorite(product) {
       try {
-        const response = await axios.put(`/collected-products/${product.id}`, {
+        const response = await api.put(`/collected-products/${product.id}`, {
           is_favorite: !product.is_favorite
         })
         
@@ -847,7 +847,7 @@ export default {
       this.analyzingProducts.add(product.id)
 
       try {
-        const response = await axios.post(`/collected-products/${product.id}/reanalyze`, {
+        const response = await api.post(`/collected-products/${product.id}/reanalyze`, {
           target_margin: targetMargin,
           japan_shipping_jpy: japanShipping,
           korea_shipping_krw: koreaShipping
@@ -868,7 +868,7 @@ export default {
       if (!confirm(`"${product.title}" 상품을 삭제하시겠습니까?`)) return
 
       try {
-        const response = await axios.delete(`/collected-products/${product.id}`)
+        const response = await api.delete(`/collected-products/${product.id}`)
 
         if (response.data.success) {
           this.products = this.products.filter(p => p.id !== product.id)

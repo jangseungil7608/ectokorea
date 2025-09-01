@@ -141,7 +141,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import axios from 'axios'
+import api from '@/utils/api'
 
 const { t } = useI18n()
 
@@ -177,7 +177,7 @@ const fetchProductInfo = async () => {
   
   try {
     // 먼저 변형 상품 목록 조회
-    const variantsResponse = await axios.get(`/product-variants/${asinInput.value.trim()}`)
+    const variantsResponse = await api.get(`/product-variants/${asinInput.value.trim()}`)
     
     if (variantsResponse.data.success && variantsResponse.data.data.length > 0) {
       variants.value = variantsResponse.data.data
@@ -190,7 +190,7 @@ const fetchProductInfo = async () => {
       isError.value = false
     } else {
       // 변형 상품이 없으면 기존 방식으로 단일 상품 조회
-      const response = await axios.get(`/amazon/${asinInput.value.trim()}`)
+      const response = await api.get(`/amazon/${asinInput.value.trim()}`)
       
       // API 응답을 폼에 채우기
       product.value = {
@@ -250,7 +250,7 @@ const submitProduct = async () => {
   loading.value = true
   
   try {
-    const response = await axios.post('/products', {
+    const response = await api.post('/products', {
       name: product.value.name,
       price: extractPriceNumber(product.value.price),
       asin: product.value.asin,

@@ -55,8 +55,8 @@ Route::prefix('ectokorea')->group(function () {
         Route::get('/debug-shipping', [ProfitCalculatorController::class, 'debugShipping']);
     });
 
-    // 수집 상품 관리 라우트 (인증 필요 없이 테스트)
-    Route::prefix('collected-products')->group(function () {
+    // 수집 상품 관리 라우트 (JWT 인증 필요)
+    Route::prefix('collected-products')->middleware(['auth:api'])->group(function () {
         // 상품 수집
         Route::post('/collect/asin', [CollectedProductController::class, 'collectByAsin']);
         Route::post('/collect/bulk-asin', [CollectedProductController::class, 'collectBulkAsin']);

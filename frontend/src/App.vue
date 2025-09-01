@@ -25,6 +25,12 @@ onMounted(async () => {
   await authStore.initializeAuth()
   themeStore.initTheme() // 테마 초기화
   languageStore.initLanguage() // 언어 초기화
+  
+  // 인증 관련 이벤트 리스너
+  window.addEventListener('auth:logout', () => {
+    console.log('인증 만료로 인한 자동 로그아웃')
+    currentTab.value = 'calculator'
+  })
 })
 
 const refreshList = () => {

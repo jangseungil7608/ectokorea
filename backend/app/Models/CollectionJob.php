@@ -10,6 +10,7 @@ class CollectionJob extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'type',
         'input_data',
         'status',
@@ -33,6 +34,17 @@ class CollectionJob extends Model
         'settings' => 'array',
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
+    ];
+
+    /**
+     * JSON 직렬화시 포함할 추가 속성들
+     */
+    protected $appends = [
+        'progress_percent',
+        'success_rate',
+        'status_name',
+        'type_name',
+        'duration_minutes'
     ];
 
     /**
@@ -63,8 +75,9 @@ class CollectionJob extends Model
      */
     public function getProgressPercentAttribute(): int
     {
-        if ($this->total_items === 0) return 0;
-        return round(($this->progress / $this->total_items) * 100);
+        if (!$this->total_items || $this->total_items <= 0) return 0;
+        $progress = $this->progress ?? 0;
+        return round(($progress / $this->total_items) * 100);
     }
 
     /**
@@ -72,8 +85,13 @@ class CollectionJob extends Model
      */
     public function getSuccessRateAttribute(): float
     {
-        if ($this->progress === 0) return 0;
-        return round(($this->success_count / $this->progress) * 100, 1);
+        $successCount = $this->success_count ?? 0;
+        $errorCount = $this->error_count ?? 0;
+        $totalProcessed = $successCount + $errorCount;
+        
+        if ($totalProcessed <= 0) return 0;
+        
+        return round(($successCount / $totalProcessed) * 100, 1);
     }
 
     /**
@@ -113,6 +131,88 @@ class CollectionJob extends Model
      */
     public function getDurationMinutesAttribute(): ?float
     {
-        return $this->duration_seconds ? round($this->duration_seconds / 60, 1) : null;
+        // 완료된 경우: duration_seconds 사용
+        if ($this->duration_seconds) {
+            return round($this->duration_seconds / 60, 1);
+        }
+        
+        // 진행 중인 경우: 시작시간부터 현재까지 계산
+        if ($this->started_at && in_array($this->status, ['PROCESSING', 'FAILED'])) {
+            $durationSeconds = now()->diffInSeconds($this->started_at);
+            return round($durationSeconds / 60, 1);
+        }
+        
+        return null;
+    }
+
+    /**
+     * 작업 완료/실패 시 duration 계산 (초 단위)
+     */
+    public function calculateDurationSeconds($completedAt = null): int
+    {
+        $completedAt = $completedAt ?? now();
+        
+        if (!$this->started_at) {
+            return 0;
+        }
+        
+        // Carbon 3: started_at에서 completed_at까지의 차이 (양수 기대)
+        $durationSeconds = $this->started_at->diffInSeconds($completedAt);
+        
+        if ($durationSeconds < 0) {
+            throw new \Exception("Invalid time calculation: started_at ({$this->started_at}) > completed_at ({$completedAt}). Duration: {$durationSeconds}");
+        }
+        
+        return intval($durationSeconds);
+    }
+    
+    /**
+     * 작업 완료 처리
+     */
+    public function markAsCompleted($completedAt = null): void
+    {
+        $completedAt = $completedAt ?? now();
+        $durationSeconds = $this->calculateDurationSeconds($completedAt);
+        
+        $this->update([
+            'status' => 'COMPLETED',
+            'completed_at' => $completedAt,
+            'progress' => $this->total_items,
+            'duration_seconds' => $durationSeconds
+        ]);
+    }
+    
+    /**
+     * 작업 실패 처리
+     */
+    public function markAsFailed($errorMessage, $completedAt = null): void
+    {
+        $completedAt = $completedAt ?? now();
+        
+        try {
+            $durationSeconds = $this->calculateDurationSeconds($completedAt);
+        } catch (\Exception $e) {
+            // 시간 계산 실패 시 최소 1초로 설정
+            $durationSeconds = 1;
+            \Log::warning("Time calculation failed, using fallback", [
+                'job_id' => $this->id,
+                'error' => $e->getMessage()
+            ]);
+        }
+        
+        $this->update([
+            'status' => 'FAILED',
+            'error_message' => $errorMessage,
+            'completed_at' => $completedAt,
+            'duration_seconds' => $durationSeconds
+        ]);
+    }
+
+    /**
+     * 관계: 작업을 생성한 사용자
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 }

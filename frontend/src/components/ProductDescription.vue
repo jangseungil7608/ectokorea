@@ -77,6 +77,10 @@
 import { ref, computed } from 'vue'
 
 const props = defineProps({
+  htmlContent: {
+    type: String,
+    default: ''
+  },
   product: {
     type: Object,
     default: () => ({})
@@ -88,7 +92,8 @@ const selectedImage = ref('')
 
 // HTML 설명 정리 및 안전성 검사
 const sanitizedDescription = computed(() => {
-  const description = props.product?.description
+  // htmlContent prop 우선 사용, 없으면 product.description 사용
+  const description = props.htmlContent || props.product?.description
   
   if (!description || typeof description !== 'string') {
     return null
@@ -121,7 +126,8 @@ const sanitizedDescription = computed(() => {
 
 // 일반 텍스트 설명
 const plainTextDescription = computed(() => {
-  const description = props.product?.description
+  // htmlContent prop 우선 사용, 없으면 product.description 사용
+  const description = props.htmlContent || props.product?.description
   
   if (!description || typeof description !== 'string') {
     return null

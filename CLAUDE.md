@@ -10,7 +10,7 @@ claude code 설치는 wsl(2.3.26) 에 했음
 
 기본적으로 설치(install)는 유저가 직접하도록 유도
 
-## 최근 해결된 문제들 (2025-01-26)
+## 최근 해결된 문제들
 
 ### ✅ 프론트엔드 이미지 표시 문제 해결
 - **문제**: 수집상품 > 상세보기에서 이미지가 표시되지 않음
@@ -35,11 +35,66 @@ claude code 설치는 wsl(2.3.26) 에 했음
   - OS/Editor: .DS_Store, .vscode, .idea 등
 - **파일**: `/.gitignore`
 
-### 🔄 현재 진행 중
-- **백엔드 API 500 에러**: JWT 인증 구현 대기 중
-  - CollectedProductController에서 `auth('api')->user()` null 반환
-  - 임시 해결책: 인증 체크 건너뛰기 또는 JWT 완전 구현 필요
-- **외부 접속 로그인 실패**: 백엔드 라우팅 또는 JWT 설정 문제
+### ✅ Laravel Queue 시스템 구현 (2025-01-26)
+- **문제**: 대량 수집 작업이 PENDING 상태로 멈춤
+- **원인**: 작업 생성만 하고 실제 처리 로직 없음
+- **해결**: Laravel Queue 시스템 완전 도입
+  - `ProcessBulkCollectionJob` Queue Job 클래스 생성
+  - 백그라운드에서 ASIN 대량 수집 처리
+  - 실시간 진행률 업데이트
+  - 실패 시 재시도 및 에러 처리
+- **파일**: `/backend/app/Jobs/ProcessBulkCollectionJob.php`, `/backend/app/Http/Controllers/CollectedProductController.php`
+
+### ✅ Laravel Scheduler 자동화 구현 (2025-01-26)
+- **문제**: Queue Worker를 매번 수동 실행해야 함
+- **해결**: Laravel Scheduler로 Queue Worker 자동화
+  - 매분마다 Queue 작업 자동 처리 (`queue:work --stop-when-empty`)
+  - 30분 이상 PENDING 작업 자동 정리
+  - 실패한 Queue 작업 주기적 정리 (1주일)
+  - Cron 설정 한 번만으로 완전 자동화
+- **파일**: `/backend/app/Console/Kernel.php`
+
+### ✅ 수집 작업 모니터링 시스템 완전 구현 (2025-08-28)
+- **문제**: 수집 작업 모니터 상세보기에서 처리통계(성공/실패/성공률/소요시간)가 표시되지 않음
+- **원인**: 
+  - CollectionJob 모델의 success_rate 계산 로직 오류 (progress 기반 → count 기반으로 수정)
+  - ProcessBulkCollectionJob에서 completion 로직 실행되지 않음 (early return 제거)
+  - 시간대 불일치로 인한 duration_seconds 음수/소수점 에러
+  - 중복된 시간 계산 로직과 에러 처리 분산
+- **해결**: 
+  - **통계 계산 수정**: success_count/error_count 기반 성공률 계산
+  - **결과 데이터 추가**: 각 ASIN별 처리 결과를 results 배열에 저장
+  - **프론트엔드 개선**: CollectionJobMonitor에 results 표시 및 필터링 기능 추가
+  - **시간대 통일**: Laravel(`config/app.php`) 및 PostgreSQL을 모두 `Asia/Tokyo`로 설정
+  - **코드 리팩토링**: CollectionJob 모델에 `calculateDurationSeconds()`, `markAsCompleted()`, `markAsFailed()` 메서드 추가
+  - **에러 처리 개선**: 음수 duration 시 Exception 발생, 시간 계산 실패 시 fallback 처리
+- **파일**: 
+  - `/backend/app/Models/CollectionJob.php`: 통계 계산 및 상태 관리 메서드 추가
+  - `/backend/app/Jobs/ProcessBulkCollectionJob.php`: 완전 리팩토링 (160줄 → 100줄)
+  - `/frontend/src/components/CollectionJobMonitor.vue`: results 표시 및 필터링 기능
+  - `/backend/config/app.php`: 시간대를 `Asia/Tokyo`로 설정
+
+### ✅ Queue Worker 모니터링 및 관리 명령어 정리
+```bash
+# Queue Worker 상태 확인
+ps aux | grep -v grep | grep "queue:work\|artisan.*queue"
+
+# Queue 작업 모니터링
+php artisan queue:monitor database
+
+# 실패한 작업 확인
+php artisan queue:failed
+
+# Queue Worker 재시작 (코드 변경 시 필수)
+docker exec -it ectokorea-backend-1 pkill -f "queue:work"
+docker exec -it ectokorea-backend-1 php artisan queue:work --stop-when-empty
+
+# Laravel Scheduler 자동 실행 (권장)
+php artisan schedule:run
+
+# 설정 캐시 클리어 (timezone 변경 시)
+php artisan config:clear
+```
 
 ### 🏗️ 아키텍처 권장사항
 
@@ -230,6 +285,15 @@ php artisan migrate
 
 # Clear application cache
 php artisan config:clear
+
+# Queue Worker 실행 (대량 수집 작업 처리용)
+php artisan queue:work --queue=default --tries=3
+
+# Queue 상태 모니터링
+php artisan queue:monitor database
+
+# Laravel Scheduler 시작 (Queue Worker 자동화 - 추천)
+php artisan schedule:run
 ```
 
 ### Frontend (Vue)

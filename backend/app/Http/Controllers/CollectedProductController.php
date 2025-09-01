@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CollectedProduct;
 use App\Models\CollectionJob;
 use App\Services\ProductCollectionService;
+use App\Jobs\ProcessBulkCollectionJob;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -23,8 +24,7 @@ class CollectedProductController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        // 현재 로그인한 사용자의 수집 상품만 조회
-        $query = auth('api')->user()->collectedProducts();
+        $query = CollectedProduct::where('user_id', auth('api')->id());
 
         // 상태 필터
         if ($request->has('status')) {
@@ -142,9 +142,12 @@ class CollectedProductController extends Controller
                 ['auto_analyze' => $validated['auto_analyze'] ?? true]
             );
 
+            // Queue Job 디스패치 (인증된 사용자 ID 전달)
+            ProcessBulkCollectionJob::dispatch($job->id, auth('api')->id());
+
             return response()->json([
                 'success' => true,
-                'message' => '대량 수집 작업이 생성되었습니다.',
+                'message' => '대량 수집 작업이 Queue에 추가되었습니다. 백그라운드에서 처리됩니다.',
                 'data' => $job
             ]);
         } catch (\Exception $e) {
@@ -212,9 +215,12 @@ class CollectedProductController extends Controller
                 $validated['auto_analyze'] ?? true
             );
 
+            // Queue Job 디스패치 (인증된 사용자 ID 전달)
+            ProcessBulkCollectionJob::dispatch($job->id, auth('api')->id());
+
             return response()->json([
                 'success' => true,
-                'message' => "'{$validated['keyword']}' 키워드로 상품 검색 및 수집 작업이 생성되었습니다.",
+                'message' => "'{$validated['keyword']}' 키워드로 상품 검색 및 수집 작업이 Queue에 추가되었습니다. 백그라운드에서 처리됩니다.",
                 'data' => $job
             ]);
         } catch (\Exception $e) {
@@ -313,7 +319,7 @@ class CollectedProductController extends Controller
      */
     public function getJobs(Request $request): JsonResponse
     {
-        $query = CollectionJob::query();
+        $query = CollectionJob::where('user_id', auth('api')->id());
 
         if ($request->has('status')) {
             $query->where('status', $request->status);
@@ -337,6 +343,11 @@ class CollectedProductController extends Controller
      */
     public function getJob(CollectionJob $collectionJob): JsonResponse
     {
+        // 사용자 소유권 확인
+        if ($collectionJob->user_id !== auth('api')->id()) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+        
         return response()->json([
             'success' => true,
             'data' => $collectionJob
@@ -348,8 +359,7 @@ class CollectedProductController extends Controller
      */
     public function getStats(): JsonResponse
     {
-        $userId = auth('api')->id();
-        $userProducts = auth('api')->user()->collectedProducts();
+        $userProducts = CollectedProduct::where('user_id', auth('api')->id());
         
         $stats = [
             'total_products' => $userProducts->count(),
@@ -364,9 +374,10 @@ class CollectedProductController extends Controller
             'profitable_count' => $userProducts->where('is_profitable', true)->count(),
             'favorite_count' => $userProducts->where('is_favorite', true)->count(),
             'recent_jobs' => [
-                'pending' => CollectionJob::where('status', 'PENDING')->count(),
-                'processing' => CollectionJob::where('status', 'PROCESSING')->count(),
-                'completed_today' => CollectionJob::where('status', 'COMPLETED')
+                'pending' => CollectionJob::where('user_id', auth('api')->id())->where('status', 'PENDING')->count(),
+                'processing' => CollectionJob::where('user_id', auth('api')->id())->where('status', 'PROCESSING')->count(),
+                'completed_today' => CollectionJob::where('user_id', auth('api')->id())
+                    ->where('status', 'COMPLETED')
                     ->whereDate('completed_at', today())->count(),
             ]
         ];

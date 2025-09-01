@@ -319,7 +319,7 @@
 </template>
 
 <script>
-import axios from 'axios'
+import api from '@/utils/api'
 
 export default {
   name: 'ProfitCalculator',
@@ -387,7 +387,7 @@ export default {
     async loadExchangeRate() {
       try {
         this.loading.exchangeRate = true
-        const response = await axios.get('/exchange-rate/current')
+        const response = await api.get('/exchange-rate/current')
         if (response.data.success) {
           this.exchangeRate = response.data.data.rate
           this.lastUpdated = new Date(response.data.data.last_updated).toLocaleString('ko-KR')
@@ -403,7 +403,7 @@ export default {
     async refreshExchangeRate() {
       try {
         this.loading.exchangeRate = true
-        const response = await axios.post('/exchange-rate/refresh')
+        const response = await api.post('/exchange-rate/refresh')
         if (response.data.success) {
           this.exchangeRate = response.data.data.rate
           this.lastUpdated = new Date(response.data.data.last_updated).toLocaleString('ko-KR')
@@ -428,7 +428,7 @@ export default {
         this.error = null
         this.recommendedPriceResult = null
 
-        const response = await axios.post('/profit-calculator/calculate', this.form)
+        const response = await api.post('/profit-calculator/calculate', this.form)
         
         if (response.data.success) {
           this.result = response.data.data
@@ -454,7 +454,7 @@ export default {
           target_profit_margin: this.targetProfitMargin
         }
 
-        const response = await axios.post('/profit-calculator/recommend-price', requestData)
+        const response = await api.post('/profit-calculator/recommend-price', requestData)
         
         if (response.data.success) {
           this.recommendedPriceResult = response.data.data

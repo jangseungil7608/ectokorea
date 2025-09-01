@@ -44,6 +44,24 @@ class ProductCollectionService
     }
 
     /**
+     * ASIN으로 Amazon 상품 수집 (특정 사용자용 - Queue Job에서 사용)
+     */
+    public function collectByAsinForUser(string $asin, int $userId, bool $autoAnalyze = true, float $targetMargin = 10.0, float $japanShippingJpy = 0, float $koreaShippingKrw = 0): CollectedProduct
+    {
+        // 해당 사용자가 이미 수집한 상품인지 확인
+        $existingProduct = CollectedProduct::where('asin', $asin)
+                                          ->where('user_id', $userId)
+                                          ->first();
+        if ($existingProduct) {
+            // 기존 상품이 있으면 재수집
+            return $this->recollectProductForUser($existingProduct, $userId, $autoAnalyze, $targetMargin, $japanShippingJpy, $koreaShippingKrw);
+        }
+
+        // 새 상품 수집
+        return $this->collectNewProductForUser($asin, $userId, $autoAnalyze, $targetMargin, $japanShippingJpy, $koreaShippingKrw);
+    }
+
+    /**
      * 새 상품 수집
      */
     private function collectNewProduct(string $asin, bool $autoAnalyze, float $targetMargin = 10.0, float $japanShippingJpy = 0, float $koreaShippingKrw = 0): CollectedProduct
@@ -118,6 +136,161 @@ class ProductCollectionService
                 'trace' => $e->getTraceAsString()
             ]);
 
+            throw $e;
+        }
+    }
+
+    /**
+     * 새 상품 수집 (특정 사용자용)
+     */
+    private function collectNewProductForUser(string $asin, int $userId, bool $autoAnalyze, float $targetMargin = 10.0, float $japanShippingJpy = 0, float $koreaShippingKrw = 0): CollectedProduct
+    {
+        // 수집 대기 상태로 상품 생성
+        $product = CollectedProduct::create([
+            'asin' => $asin,
+            'title' => '수집 중...',
+            'status' => 'COLLECTING',
+            'source_url' => "https://www.amazon.co.jp/dp/{$asin}",
+            'user_id' => $userId
+        ]);
+
+        try {
+            // Python 스크래퍼로 Amazon 상품 정보 스크래핑
+            $productData = $this->scrapeProductFromPython('amazon', ['asin' => $asin]);
+            
+            // 카테고리 및 서브카테고리 자동 판정
+            $category = $this->determineCategory($product, $productData);
+            $subcategory = $this->determineSubcategory($category, $product, $productData);
+
+            // 원문 데이터 저장 전 로그 (새 상품)
+            Log::info("새 상품 데이터베이스 저장 전 원문 데이터 확인", [
+                'asin' => $asin,
+                'user_id' => $userId,
+                'original_name' => $productData['original_name'] ?? 'NULL',
+                'original_category' => $productData['original_category'] ?? 'NULL',
+                'has_original_description' => isset($productData['original_description']),
+                'has_original_features' => isset($productData['original_features']) && is_array($productData['original_features']) ? count($productData['original_features']) . '개' : 'NULL'
+            ]);
+
+            // 상품 정보 업데이트 (원문 필드 포함)
+            $product->update([
+                'title' => $productData['title'] ?? $productData['name'] ?? '제목 없음',
+                'original_title' => $productData['original_name'] ?? null,
+                'price_jpy' => $this->extractPriceFromData($productData),
+                'weight_g' => $this->extractWeight($productData),
+                'dimensions' => $this->extractDimensions($productData),
+                'category' => $category,
+                'original_category' => $productData['original_category'] ?? null,
+                'subcategory' => $subcategory,
+                'images' => $this->extractImages($productData),
+                'thumbnail_images' => $this->extractThumbnailImages($productData),
+                'large_images' => $this->extractLargeImages($productData),
+                'description_images' => $this->extractDescriptionImages($productData),
+                'description' => $productData['description'] ?? '',
+                'original_description' => $productData['original_description'] ?? null,
+                'features' => $this->extractFeatures($productData),
+                'original_features' => $productData['original_features'] ?? null,
+                'specifications' => $this->extractSpecifications($productData),
+                'status' => 'COLLECTED',
+                'collected_at' => now()
+            ]);
+
+            Log::info("상품 수집 완료: {$asin}", ['title' => $product->title, 'user_id' => $userId]);
+
+            // 자동 분석 실행
+            if ($autoAnalyze) {
+                $this->analyzeProfitability($product, $targetMargin, $japanShippingJpy, $koreaShippingKrw);
+            }
+
+            return $product;
+
+        } catch (Exception $e) {
+            // 오류 상태로 업데이트
+            $product->update([
+                'status' => 'ERROR',
+                'error_message' => $e->getMessage()
+            ]);
+
+            Log::error("상품 수집 실패: {$asin}", [
+                'user_id' => $userId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            throw $e;
+        }
+    }
+
+    /**
+     * 기존 상품 재수집 (특정 사용자용)
+     */
+    private function recollectProductForUser(CollectedProduct $product, int $userId, bool $autoAnalyze, float $targetMargin = 10.0, float $japanShippingJpy = 0, float $koreaShippingKrw = 0): CollectedProduct
+    {
+        $product->update([
+            'status' => 'COLLECTING',
+            'error_message' => null
+        ]);
+
+        try {
+            $productData = $this->scrapeProductFromPython('amazon', ['asin' => $product->asin]);
+            
+            // 카테고리 및 서브카테고리 재판정
+            $category = $this->determineCategory($product, $productData);
+            $subcategory = $this->determineSubcategory($category, $product, $productData);
+            
+            // 원문 데이터 저장 전 로그
+            Log::info("데이터베이스 저장 전 원문 데이터 확인", [
+                'asin' => $product->asin,
+                'user_id' => $userId,
+                'original_name' => $productData['original_name'] ?? 'NULL',
+                'original_category' => $productData['original_category'] ?? 'NULL',
+                'has_original_description' => isset($productData['original_description']),
+                'has_original_features' => isset($productData['original_features']) && is_array($productData['original_features']) ? count($productData['original_features']) . '개' : 'NULL'
+            ]);
+
+            // 상품 정보 재업데이트
+            $product->update([
+                'title' => $productData['title'] ?? $productData['name'] ?? '제목 없음',
+                'original_title' => $productData['original_name'] ?? null,
+                'price_jpy' => $this->extractPriceFromData($productData),
+                'weight_g' => $this->extractWeight($productData),
+                'dimensions' => $this->extractDimensions($productData),
+                'category' => $category,
+                'original_category' => $productData['original_category'] ?? null,
+                'subcategory' => $subcategory,
+                'images' => $this->extractImages($productData),
+                'thumbnail_images' => $this->extractThumbnailImages($productData),
+                'large_images' => $this->extractLargeImages($productData),
+                'description_images' => $this->extractDescriptionImages($productData),
+                'description' => $productData['description'] ?? '',
+                'original_description' => $productData['original_description'] ?? null,
+                'features' => $this->extractFeatures($productData),
+                'original_features' => $productData['original_features'] ?? null,
+                'specifications' => $this->extractSpecifications($productData),
+                'status' => 'COLLECTED',
+                'collected_at' => now()
+            ]);
+
+            Log::info("상품 재수집 완료: {$product->asin}", ['title' => $product->title, 'user_id' => $userId]);
+
+            // 자동 분석 실행
+            if ($autoAnalyze) {
+                $this->analyzeProfitability($product, $targetMargin, $japanShippingJpy, $koreaShippingKrw);
+            }
+
+            return $product;
+
+        } catch (Exception $e) {
+            $product->update([
+                'status' => 'ERROR', 
+                'error_message' => $e->getMessage()
+            ]);
+            
+            Log::error("상품 재수집 실패: {$product->asin}", [
+                'user_id' => $userId,
+                'error' => $e->getMessage()
+            ]);
+            
             throw $e;
         }
     }
@@ -339,6 +512,7 @@ class ProductCollectionService
         };
 
         return CollectionJob::create([
+            'user_id' => auth('api')->id(),
             'type' => $type,
             'input_data' => $inputData,
             'total_items' => $totalItems,

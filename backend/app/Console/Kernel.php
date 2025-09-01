@@ -17,6 +17,22 @@ class Kernel extends ConsoleKernel
                  ->dailyAt('09:00')
                  ->withoutOverlapping()
                  ->runInBackground();
+
+        // Queue Worker는 Supervisor로 관리 (supervisor-ectokorea-worker.conf 참조)
+        
+        // PENDING 상태로 오래 남아있는 작업 정리 (매 10분)
+        $schedule->call(function () {
+            \App\Models\CollectionJob::where('status', 'PENDING')
+                ->where('created_at', '<', now()->subMinutes(30))
+                ->update([
+                    'status' => 'FAILED',
+                    'error_message' => '작업 처리 시간 초과로 자동 취소됨'
+                ]);
+        })->everyTenMinutes();
+
+        // 실패한 Queue 작업 정리 (매일 자정)
+        $schedule->command('queue:prune-failed --hours=168') // 1주일 후 삭제
+                 ->daily();
     }
 
     /**

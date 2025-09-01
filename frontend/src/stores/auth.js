@@ -1,11 +1,11 @@
 import { defineStore } from 'pinia'
-import axios from 'axios'
+import { authAPI, tokenManager } from '@/utils/api'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
-    user: null,
-    token: localStorage.getItem('jwt_token') || null,
-    isAuthenticated: false,
+    user: JSON.parse(localStorage.getItem('user_data') || 'null'),
+    token: tokenManager.getToken(),
+    isAuthenticated: !!tokenManager.getToken() && !tokenManager.isTokenExpired(tokenManager.getToken()),
     loading: false
   }),
 
@@ -20,23 +20,23 @@ export const useAuthStore = defineStore('auth', {
       this.loading = true
       
       try {
-        const response = await axios.post('/auth/login', credentials)
+        const response = await authAPI.login(credentials.email, credentials.password)
         
-        if (response.data.success) {
-          this.token = response.data.access_token
-          this.user = response.data.user
+        if (response.success) {
+          this.token = response.access_token
+          this.user = response.user
           this.isAuthenticated = true
           
-          // localStorage에 토큰 저장 (7일간 유지)
-          localStorage.setItem('jwt_token', this.token)
-          
-          // axios 기본 헤더에 토큰 설정
-          this.setAuthHeader(this.token)
+          // tokenManager를 통해 토큰과 사용자 데이터 저장
+          tokenManager.setToken(this.token)
+          localStorage.setItem('user_data', JSON.stringify(this.user))
           
           // 자동 토큰 갱신 예약
           this.scheduleTokenRefresh()
           
           return { success: true, user: this.user }
+        } else {
+          return { success: false, message: response.message || '로그인에 실패했습니다.' }
         }
       } catch (error) {
         console.error('로그인 실패:', error)
@@ -58,7 +58,7 @@ export const useAuthStore = defineStore('auth', {
     async logout() {
       try {
         if (this.token) {
-          await axios.post('/auth/logout')
+          await authAPI.logout()
         }
       } catch (error) {
         console.error('로그아웃 요청 실패:', error)
@@ -68,11 +68,8 @@ export const useAuthStore = defineStore('auth', {
         this.user = null
         this.isAuthenticated = false
         
-        // localStorage에서 토큰 제거
-        localStorage.removeItem('jwt_token')
-        
-        // axios 헤더에서 토큰 제거
-        delete axios.defaults.headers.common['Authorization']
+        // tokenManager를 통해 토큰과 사용자 데이터 제거
+        tokenManager.removeToken()
       }
     },
 
@@ -81,14 +78,15 @@ export const useAuthStore = defineStore('auth', {
       if (!this.token) return false
       
       try {
-        const response = await axios.post('/auth/refresh')
+        const response = await authAPI.refresh()
         
-        if (response.data.success) {
-          this.token = response.data.access_token
-          this.user = response.data.user
+        if (response.success) {
+          this.token = response.access_token
+          this.user = response.user
           
-          localStorage.setItem('jwt_token', this.token)
-          this.setAuthHeader(this.token)
+          // tokenManager를 통해 토큰과 사용자 데이터 저장
+          tokenManager.setToken(this.token)
+          localStorage.setItem('user_data', JSON.stringify(this.user))
           
           // 자동 토큰 갱신 예약
           this.scheduleTokenRefresh()
@@ -108,11 +106,12 @@ export const useAuthStore = defineStore('auth', {
       if (!this.token) return false
       
       try {
-        const response = await axios.get('/auth/me')
+        const response = await authAPI.me()
         
-        if (response.data.success) {
-          this.user = response.data.user
+        if (response.success) {
+          this.user = response.user
           this.isAuthenticated = true
+          localStorage.setItem('user_data', JSON.stringify(this.user))
           return true
         }
       } catch (error) {
@@ -124,10 +123,11 @@ export const useAuthStore = defineStore('auth', {
           if (refreshed) {
             // 토큰 갱신 성공 시 다시 사용자 정보 조회
             try {
-              const retryResponse = await axios.get('/auth/me')
-              if (retryResponse.data.success) {
-                this.user = retryResponse.data.user
+              const retryResponse = await authAPI.me()
+              if (retryResponse.success) {
+                this.user = retryResponse.user
                 this.isAuthenticated = true
+                localStorage.setItem('user_data', JSON.stringify(this.user))
                 return true
               }
             } catch (retryError) {
@@ -148,10 +148,17 @@ export const useAuthStore = defineStore('auth', {
       this.loading = true
       
       try {
-        const response = await axios.post('/auth/register', userData)
+        const response = await authAPI.register(
+          userData.name, 
+          userData.email, 
+          userData.password, 
+          userData.password_confirmation
+        )
         
-        if (response.data.success) {
-          return { success: true, message: response.data.message, user: response.data.user }
+        if (response.success) {
+          return { success: true, message: response.message, user: response.user }
+        } else {
+          return { success: false, message: response.message || '회원가입에 실패했습니다.' }
         }
       } catch (error) {
         console.error('회원가입 실패:', error)
@@ -195,11 +202,10 @@ export const useAuthStore = defineStore('auth', {
 
     // 앱 초기화 시 토큰 복원
     async initializeAuth() {
-      const token = localStorage.getItem('jwt_token')
+      const token = tokenManager.getToken()
       
-      if (token) {
+      if (token && !tokenManager.isTokenExpired(token)) {
         this.token = token
-        this.setAuthHeader(token)
         
         console.log('저장된 토큰으로 인증 상태 복원 시도...')
         
@@ -215,15 +221,9 @@ export const useAuthStore = defineStore('auth', {
           // 복원 실패 시 상태 초기화
           this.clearAuth()
         }
-      }
-    },
-
-    // axios 헤더에 인증 토큰 설정
-    setAuthHeader(token) {
-      if (token) {
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-      } else {
-        delete axios.defaults.headers.common['Authorization']
+      } else if (token && tokenManager.isTokenExpired(token)) {
+        console.log('토큰이 만료됨, 제거')
+        this.clearAuth()
       }
     },
 
@@ -232,8 +232,7 @@ export const useAuthStore = defineStore('auth', {
       this.token = null
       this.user = null
       this.isAuthenticated = false
-      localStorage.removeItem('jwt_token')
-      delete axios.defaults.headers.common['Authorization']
+      tokenManager.removeToken()
     },
 
     // 자동 토큰 갱신 (만료 30분 전)
