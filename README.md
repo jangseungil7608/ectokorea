@@ -13,6 +13,9 @@
 - **🔍 多サイト商品収集**: Amazon、楽天、JINS商品情報自動収集 (Python FastAPI)
 - **🖼️ 画像ギャラリー**: Amazon風6枚画像ギャラリー対応
 - **📝 商品管理**: 収集商品の登録・修正・削除・照会
+- **⚡ 大量収集システム**: Laravel Queue基盤のバックグラウンド処理
+- **📈 収集作業モニタリング**: リアルタイム進行状況・統計・結果追跡
+- **🔗 URL収集対応**: Amazon ベストセラーページ等URL直接収集
 - **🔐 JWT認証システム**: セキュアなユーザー認証 (実装予定)
 
 ### 🔄 実装予定機能
@@ -198,6 +201,12 @@ npm run build
 # Pythonスクレイパーテスト
 cd python-scraper
 python -m pytest tests/
+
+# Laravel Queue関連コマンド
+php artisan queue:work --stop-when-empty  # Queue Worker実行
+php artisan queue:monitor database         # Queue作業モニタリング
+php artisan queue:failed                   # 失敗作業確認
+php artisan schedule:run                   # Laravel Scheduler実行（推奨）
 ```
 
 ## 📡 APIエンドポイント

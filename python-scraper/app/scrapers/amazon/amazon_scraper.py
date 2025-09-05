@@ -1302,3 +1302,91 @@ class AmazonScraper(BaseScraper):
             product.site_specific_data['translation_services'] = [{'field': 'all', 'service': 'translation_failed', 'error': str(e)}]
             
             return product
+    
+    async def scrape_bestsellers_asins(self, url: str, limit: int = 20) -> List[str]:
+        """베스트셀러 페이지에서 상품 ASIN 목록 추출
+        
+        Args:
+            url: 베스트셀러 페이지 URL
+            limit: 추출할 최대 ASIN 개수 (기본 20개)
+            
+        Returns:
+            List[str]: ASIN 목록
+        """
+        async with httpx.AsyncClient(headers=self.headers, timeout=30.0) as client:
+            try:
+                response = await client.get(url)
+                response.raise_for_status()
+                
+                soup = BeautifulSoup(response.text, 'lxml')
+                asins = []
+                
+                # 베스트셀러 상품 링크에서 ASIN 추출
+                product_links = soup.find_all('a', href=True)
+                
+                for link in product_links:
+                    href = link.get('href')
+                    if href and '/dp/' in href:
+                        # ASIN 패턴 매칭
+                        asin_match = re.search(r'/dp/([A-Z0-9]{10})', href)
+                        if asin_match:
+                            asin = asin_match.group(1)
+                            if asin not in asins:  # 중복 제거
+                                asins.append(asin)
+                                if len(asins) >= limit:
+                                    break
+                
+                logger.info(f"베스트셀러 페이지에서 {len(asins)}개 ASIN 추출 완료: {url}")
+                return asins
+                
+            except httpx.TimeoutException:
+                raise ScrapingTimeoutError(f"베스트셀러 페이지 스크래핑 타임아웃: {url}")
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 404:
+                    raise ProductNotFoundError(f"베스트셀러 페이지를 찾을 수 없습니다: {url}")
+                raise ScrapingError(f"베스트셀러 페이지 스크래핑 실패: {e}")
+            except Exception as e:
+                raise ParsingError(f"베스트셀러 페이지 파싱 중 오류 발생: {e}")
+    
+    async def scrape_bestsellers_products(self, url: str, limit: int = 20, translate: bool = True) -> List[Product]:
+        """베스트셀러 페이지에서 상품들을 일괄 수집
+        
+        Args:
+            url: 베스트셀러 페이지 URL
+            limit: 수집할 최대 상품 개수 (기본 20개)
+            translate: 번역 여부 (기본 True)
+            
+        Returns:
+            List[Product]: 수집된 상품 목록
+        """
+        # 1단계: ASIN 목록 추출
+        asins = await self.scrape_bestsellers_asins(url, limit)
+        
+        if not asins:
+            logger.warning(f"베스트셀러 페이지에서 ASIN을 찾을 수 없습니다: {url}")
+            return []
+        
+        # 2단계: 각 ASIN별 상품 정보 수집
+        products = []
+        failed_asins = []
+        
+        for i, asin in enumerate(asins, 1):
+            try:
+                logger.info(f"상품 수집 중 ({i}/{len(asins)}): {asin}")
+                product = await self.scrape_product(asin, translate=translate)
+                products.append(product)
+                
+                # 요청 간격 조절 (너무 빠른 연속 요청 방지)
+                if i < len(asins):
+                    await asyncio.sleep(1)
+                    
+            except Exception as e:
+                logger.error(f"상품 수집 실패 - ASIN: {asin}, 오류: {e}")
+                failed_asins.append(asin)
+                continue
+        
+        logger.info(f"베스트셀러 상품 수집 완료: {len(products)}개 성공, {len(failed_asins)}개 실패")
+        if failed_asins:
+            logger.warning(f"수집 실패한 ASINs: {failed_asins}")
+            
+        return products

@@ -71,12 +71,15 @@ class ProcessBulkCollectionJob implements ShouldQueue
 
             switch ($collectionJob->type) {
                 case 'BULK_ASIN':
+                    Log::info("=== CALLING processBulkAsin ===", ['job_id' => $collectionJob->id]);
                     $this->processBulkAsin($collectionJob, $productCollectionService);
                     break;
                 case 'URL':
+                    Log::info("=== CALLING processUrlCollection ===", ['job_id' => $collectionJob->id]);
                     $this->processUrlCollection($collectionJob, $productCollectionService);
                     break;
                 case 'KEYWORD':
+                    Log::info("=== CALLING processKeywordCollection ===", ['job_id' => $collectionJob->id]);
                     $this->processKeywordCollection($collectionJob, $productCollectionService);
                     break;
                 default:
@@ -206,11 +209,98 @@ class ProcessBulkCollectionJob implements ShouldQueue
      */
     private function processUrlCollection(CollectionJob $job, ProductCollectionService $service): void
     {
-        // URL 수집 로직 (추후 구현)
-        $job->update([
-            'progress' => $job->total_items,
-            'success_count' => $job->total_items,
-            'error_count' => 0
+        // 강제 로그 - 메소드 호출 확인
+        Log::info("=== processUrlCollection METHOD CALLED ===", ['job_id' => $job->id]);
+        
+        $asins = $job->input_data['asins'] ?? [];
+        $settings = $job->settings ?? [];
+        $autoAnalyze = $settings['auto_analyze'] ?? true;
+
+        Log::info("Starting processUrlCollection", [
+            'job_id' => $job->id,
+            'asin_count' => count($asins),
+            'url_type' => $job->input_data['url_type'] ?? 'unknown',
+            'url' => $job->input_data['url'] ?? ''
+        ]);
+
+        $processed = 0;
+        $successCount = 0;
+        $errorCount = 0;
+        $results = []; // 수집 결과 저장
+
+        if (empty($asins)) {
+            Log::warning("No ASINs found in URL collection job input_data", ['job_id' => $job->id]);
+            // 빈 배열이어도 return하지 않고 계속 진행 (완료 처리를 위해)
+        }
+
+        foreach ($asins as $asin) {
+            try {
+                Log::info("Processing ASIN from URL collection: {$asin} for job: {$job->id}");
+
+                // 개별 상품 수집 (사용자 ID 전달)
+                $service->collectByAsinForUser(
+                    $asin,
+                    $this->userId,
+                    $autoAnalyze,
+                    $settings['target_margin'] ?? 10.0,
+                    $settings['japan_shipping_jpy'] ?? 0,
+                    $settings['korea_shipping_krw'] ?? 0
+                );
+
+                $processed++;
+                $successCount++;
+
+                // 성공 결과 저장
+                $results[] = [
+                    'asin' => $asin,
+                    'status' => 'success',
+                    'processed_at' => now()->toISOString()
+                ];
+
+                // 진행률 및 통계 업데이트
+                $job->update([
+                    'progress' => $processed,
+                    'success_count' => $successCount,
+                    'error_count' => $errorCount,
+                    'results' => $results
+                ]);
+
+                Log::info("Successfully processed URL collection ASIN: {$asin}");
+
+                // API 호출 간격 (과도한 요청 방지)
+                sleep(2);
+
+            } catch (Exception $e) {
+                Log::warning("Failed to process URL collection ASIN: {$asin}", [
+                    'error' => $e->getMessage()
+                ]);
+                
+                // 개별 실패는 전체 작업을 중단시키지 않음
+                $processed++;
+                $errorCount++;
+                
+                // 실패 결과 저장
+                $results[] = [
+                    'asin' => $asin,
+                    'status' => 'error',
+                    'error' => $e->getMessage(),
+                    'processed_at' => now()->toISOString()
+                ];
+                
+                $job->update([
+                    'progress' => $processed,
+                    'success_count' => $successCount,
+                    'error_count' => $errorCount,
+                    'results' => $results
+                ]);
+            }
+        }
+
+        Log::info("Finished processUrlCollection", [
+            'job_id' => $job->id,
+            'processed' => $processed,
+            'success_count' => $successCount,
+            'error_count' => $errorCount
         ]);
     }
 

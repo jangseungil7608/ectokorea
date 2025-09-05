@@ -86,8 +86,8 @@ class AmazonUrlParserService
             return 'CATEGORY';
         }
         
-        // 베스트셀러 페이지
-        if (strpos($url, '/bestsellers/') !== false || strpos($url, '/zgbs/') !== false) {
+        // 베스트셀러 페이지 (카테고리 포함)
+        if (strpos($url, '/gp/bestsellers') !== false || strpos($url, '/zgbs/') !== false) {
             return 'BESTSELLER';
         }
         

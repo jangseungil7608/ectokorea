@@ -177,9 +177,14 @@ class CollectedProductController extends Controller
                 $validated['max_results'] ?? 20
             );
 
+            // URL 수집 작업이 생성된 경우 Queue Job 디스패치
+            if ($result['type'] === 'job' && isset($result['job'])) {
+                ProcessBulkCollectionJob::dispatch($result['job']->id, auth('api')->id());
+            }
+
             $message = match ($result['type']) {
                 'single' => '상품 수집이 시작되었습니다.',
-                'job' => "검색 결과에서 {$result['found_count']}개 상품을 찾아 수집 작업을 생성했습니다.",
+                'job' => "검색 결과에서 {$result['found_count']}개 상품을 찾아 수집 작업을 Queue에 추가되었습니다. 백그라운드에서 처리됩니다.",
                 default => '수집이 시작되었습니다.'
             };
 

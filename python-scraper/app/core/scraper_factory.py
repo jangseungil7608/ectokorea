@@ -14,6 +14,12 @@ class ScraperFactory:
             'params': ['asin'],
             'url_template': 'https://www.amazon.co.jp/dp/{asin}'
         },
+        'amazon_bestsellers': {
+            'regex': r'amazon\.co\.jp/gp/bestsellers/?(?:([^/\?]+)/?)?',
+            'params': ['category'],
+            'url_template': 'https://www.amazon.co.jp/gp/bestsellers/{category}',
+            'is_list_page': True
+        },
         'rakuten': {
             'regex': r'item\.rakuten\.co\.jp/([^/]+)/([^/?]+)',
             'params': ['shopId', 'itemCode'],
@@ -30,6 +36,9 @@ class ScraperFactory:
     def create_scraper(cls, site: str) -> BaseScraper:
         """사이트명으로 스크래퍼 인스턴스 생성"""
         if site == 'amazon':
+            from app.scrapers.amazon.amazon_scraper import AmazonScraper
+            return AmazonScraper()
+        elif site == 'amazon_bestsellers':
             from app.scrapers.amazon.amazon_scraper import AmazonScraper
             return AmazonScraper()
         elif site == 'rakuten':

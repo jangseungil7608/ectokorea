@@ -87,6 +87,8 @@ async def ectokorea_root():
         "endpoints": {
             "scrape_by_url": "/ectokorea/api/v1/scrape?url={product_url}",
             "scrape_amazon": "/ectokorea/api/v1/scrape/amazon?asin={asin}",
+            "scrape_amazon_bestsellers": "/ectokorea/api/v1/scrape/amazon/bestsellers?url={bestsellers_url}&limit={limit}",
+            "scrape_amazon_bestsellers_asins": "/ectokorea/api/v1/scrape/amazon/bestsellers/asins?url={bestsellers_url}&limit={limit}",
             "scrape_rakuten": "/ectokorea/api/v1/scrape/rakuten?shopId={shopId}&itemCode={itemCode}",
             "scrape_jins": "/ectokorea/api/v1/scrape/jins?productId={productId}",
             "supported_sites": "/ectokorea/api/v1/sites"

@@ -54,6 +54,16 @@ claude code 설치는 wsl(2.3.26) 에 했음
   - Cron 설정 한 번만으로 완전 자동화
 - **파일**: `/backend/app/Console/Kernel.php`
 
+### ✅ URL 수집 Queue Job 디스패치 누락 수정 (2025-09-05)
+- **문제**: URL 수집(베스트셀러 페이지 등) 작업이 데이터베이스에 생성되지만 실제 처리되지 않음
+- **원인**: `collectByUrl` 컨트롤러 메서드에서 `ProcessBulkCollectionJob::dispatch()` 호출이 누락
+- **해결**: 
+  - `collectByUrl` 메서드에 Queue Job 디스패치 로직 추가
+  - `collectBulkAsin`, `collectByKeyword`와 동일한 패턴으로 통일
+  - 베스트셀러 URL에서 ASIN 추출 → Queue Job으로 개별 상품 수집 처리
+- **결과**: Amazon 베스트셀러 페이지 등 URL 수집이 정상적으로 백그라운드에서 처리됨
+- **파일**: `/backend/app/Http/Controllers/CollectedProductController.php:180-183`
+
 ### ✅ 수집 작업 모니터링 시스템 완전 구현 (2025-08-28)
 - **문제**: 수집 작업 모니터 상세보기에서 처리통계(성공/실패/성공률/소요시간)가 표시되지 않음
 - **원인**: 

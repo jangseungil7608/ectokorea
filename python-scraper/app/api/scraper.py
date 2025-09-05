@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
-from typing import Optional
+from typing import Optional, List
 
 from app.core.scraper_factory import ScraperFactory
 from app.core.exceptions import UnsupportedSiteError, ProductNotFoundError, ScrapingError
@@ -84,6 +84,96 @@ async def scrape_by_site_params(
         raise HTTPException(status_code=404, detail=str(e))
     except ScrapingError as e:
         raise HTTPException(status_code=500, detail=f"스크래핑 실패: {str(e)}")
+
+
+@router.get("/scrape/amazon/bestsellers")
+async def scrape_amazon_bestsellers(
+    url: str = Query(..., description="Amazon 베스트셀러 페이지 URL"),
+    limit: int = Query(20, description="수집할 최대 상품 개수"),
+    translate: bool = Query(True, description="한국어 번역 여부")
+):
+    """Amazon 베스트셀러 페이지에서 상품 일괄 수집"""
+    try:
+        # Amazon 베스트셀러 URL 검증
+        if 'amazon.co.jp/gp/bestsellers' not in url:
+            raise HTTPException(
+                status_code=400, 
+                detail="유효한 Amazon 베스트셀러 URL이 아닙니다. 예: https://www.amazon.co.jp/gp/bestsellers/fashion/"
+            )
+            
+        # 제한값 검증
+        if limit < 1 or limit > 50:
+            raise HTTPException(status_code=400, detail="limit는 1-50 사이의 값이어야 합니다")
+        
+        # Amazon 스크래퍼 생성
+        scraper = ScraperFactory.create_scraper('amazon')
+        
+        # 베스트셀러 상품들 일괄 수집
+        products = await scraper.scrape_bestsellers_products(url, limit=limit, translate=translate)
+        
+        if not products:
+            raise HTTPException(status_code=404, detail="베스트셀러 페이지에서 상품을 찾을 수 없습니다")
+        
+        return {
+            "success": True,
+            "site": "amazon_bestsellers",
+            "url": url,
+            "translated": translate,
+            "total_products": len(products),
+            "limit": limit,
+            "data": [product.to_laravel_format() for product in products]
+        }
+        
+    except UnsupportedSiteError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except ProductNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ScrapingError as e:
+        raise HTTPException(status_code=500, detail=f"베스트셀러 스크래핑 실패: {str(e)}")
+
+
+@router.get("/scrape/amazon/bestsellers/asins")
+async def get_amazon_bestsellers_asins(
+    url: str = Query(..., description="Amazon 베스트셀러 페이지 URL"),
+    limit: int = Query(20, description="추출할 최대 ASIN 개수")
+):
+    """Amazon 베스트셀러 페이지에서 ASIN 목록만 추출"""
+    try:
+        # Amazon 베스트셀러 URL 검증
+        if 'amazon.co.jp/gp/bestsellers' not in url:
+            raise HTTPException(
+                status_code=400, 
+                detail="유효한 Amazon 베스트셀러 URL이 아닙니다. 예: https://www.amazon.co.jp/gp/bestsellers/fashion/"
+            )
+            
+        # 제한값 검증
+        if limit < 1 or limit > 100:
+            raise HTTPException(status_code=400, detail="limit는 1-100 사이의 값이어야 합니다")
+        
+        # Amazon 스크래퍼 생성
+        scraper = ScraperFactory.create_scraper('amazon')
+        
+        # ASIN 목록 추출
+        asins = await scraper.scrape_bestsellers_asins(url, limit=limit)
+        
+        if not asins:
+            raise HTTPException(status_code=404, detail="베스트셀러 페이지에서 ASIN을 찾을 수 없습니다")
+        
+        return {
+            "success": True,
+            "site": "amazon_bestsellers", 
+            "url": url,
+            "total_asins": len(asins),
+            "limit": limit,
+            "asins": asins
+        }
+        
+    except UnsupportedSiteError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except ProductNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ScrapingError as e:
+        raise HTTPException(status_code=500, detail=f"베스트셀러 ASIN 추출 실패: {str(e)}")
 
 
 @router.get("/sites")

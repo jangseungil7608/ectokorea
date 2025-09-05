@@ -166,7 +166,7 @@
           <input
             v-model="collectionUrl"
             type="url"
-            placeholder="https://www.amazon.co.jp/dp/B08N5WRWNW 또는 검색/카테고리 URL"
+            placeholder="https://www.amazon.co.jp/dp/B08N5WRWNW 또는 https://www.amazon.co.jp/gp/bestsellers/fashion/"
             class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             :disabled="loading.url"
             @keyup.enter="collectByUrl"
@@ -180,8 +180,14 @@
           </button>
         </div>
         <p class="text-xs text-gray-500 mt-1">
-          상품 페이지, 검색 결과, 카테고리 페이지 URL 지원
+          개별 상품 페이지 및 카테고리별 베스트셀러 페이지 URL 지원 (베스트셀러는 최대 20개 상품 자동 수집)
         </p>
+        <div class="text-xs text-gray-400 mt-2 space-y-1">
+          <p><strong>베스트셀러 예시:</strong></p>
+          <p>• 패션: https://www.amazon.co.jp/gp/bestsellers/fashion/</p>
+          <p>• 게임: https://www.amazon.co.jp/gp/bestsellers/videogames/</p>
+          <p>• 스포츠: https://www.amazon.co.jp/gp/bestsellers/sports/</p>
+        </div>
       </div>
 
       <div class="flex items-center justify-between">

@@ -470,6 +470,17 @@ class ProductCollectionService
                 
                 return ['type' => 'job', 'job' => $job, 'found_count' => count($asins)];
 
+            case 'BESTSELLER':
+                // 베스트셀러 페이지 - ASIN 목록만 추출 후 Queue Job 생성 (CATEGORY와 동일한 방식)
+                $asins = $this->extractBestsellerAsins($url, $maxResults);
+                $job = $this->createBulkCollectionJob('URL', [
+                    'url' => $url,
+                    'asins' => $asins,
+                    'url_type' => 'BESTSELLER'
+                ], ['auto_analyze' => $autoAnalyze]);
+                
+                return ['type' => 'job', 'job' => $job, 'found_count' => count($asins)];
+
             default:
                 throw new Exception('지원하지 않는 URL 타입입니다.');
         }
@@ -918,6 +929,49 @@ class ProductCollectionService
         }
 
         return null;
+    }
+
+    /**
+     * 베스트셀러 페이지에서 ASIN 목록 추출
+     */
+    private function extractBestsellerAsins(string $url, int $maxResults = 20): array
+    {
+        try {
+            $response = Http::timeout(30)->get($this->pythonScraperUrl . '/scrape/amazon/bestsellers/asins', [
+                'url' => $url,
+                'limit' => min($maxResults, 50)
+            ]);
+
+            if (!$response->successful()) {
+                throw new Exception("Python 스크래퍼 API 호출 실패: " . $response->status() . " - " . $response->body());
+            }
+
+            $data = $response->json();
+
+            if (!$data['success']) {
+                throw new Exception("베스트셀러 ASIN 추출 실패: " . ($data['message'] ?? 'Unknown error'));
+            }
+
+            $asins = $data['asins'] ?? [];
+            
+            if (empty($asins)) {
+                throw new Exception('베스트셀러 페이지에서 상품을 찾을 수 없습니다.');
+            }
+
+            Log::info("베스트셀러 페이지에서 " . count($asins) . "개 ASIN 추출 성공", [
+                'url' => $url,
+                'asins' => $asins
+            ]);
+
+            return $asins;
+
+        } catch (Exception $e) {
+            Log::error("베스트셀러 ASIN 추출 실패", [
+                'url' => $url,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
     }
 
     /**
